@@ -1,6 +1,5 @@
 import org.eclipse.jetty.websocket.api.*;
 import org.eclipse.jetty.websocket.api.annotations.*;
-import spark.Request;
 
 import java.util.stream.Collectors;
 
@@ -27,7 +26,7 @@ public class WebSocketHandler {
         User newUser = new User(username, chat.getMainChannel(), user);
 
         chat.addUser(newUser);
-        chat.broadcastControlMessage();
+        chat.updateSessionsInfo();
         chat.broadcastMessageAsServer(msg = (username + " joined the chat"), chat.getUsersChannel(username));
     }
 
@@ -36,7 +35,7 @@ public class WebSocketHandler {
         User user = chat.getUser(userSession);
         chat.broadcastMessageAsServer(msg = (user.getUsername() + " left the chat"), chat.getUsersChannel(user.getUsername()));
         chat.removeUser(user);
-        chat.broadcastControlMessage();
+        chat.updateSessionsInfo();
     }
 
     @OnWebSocketMessage
@@ -46,13 +45,13 @@ public class WebSocketHandler {
         if(isCreateChannel(message)){
 
             chat.addChannel(new Channel(message.split(cmdDelimeter)[1]));
-            chat.broadcastControlMessage();
+            chat.updateSessionsInfo();
 
         } else if (isSwitchChannels(message)){
 
             chat.switchChannels(user, message.split(cmdDelimeter)[1]);
 
-            chat.broadcastControlMessage();
+            chat.updateSessionsInfo();
 
         } else {
 

@@ -1,5 +1,3 @@
-import org.json.JSONObject;
-
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -89,7 +87,7 @@ public class BotChannel extends Channel {
         }
 
 
-        this.chat.broadcastMessageToUser(answer, user);
+        this.chat.broadcastMessageToUserAsServer(answer, user);
     }
 
 

@@ -25,6 +25,9 @@ public class Chat {
         init();
     }
 
+
+    //--- COMMUNICATING WITH USERS SESSIONS -----
+
     //Messages from users, casual messages that we will broadcast to all of the users on the channel
     public void broadcastMessage(String sender, String message) {
 
@@ -55,23 +58,14 @@ public class Chat {
         });
     }
 
-    // Write message as a server, you can specify a channel to which you want to send it to!
+    // Write message as server, you can specify a channel to which you want to send it to!
     public void broadcastMessageAsServer(String msg, Channel toThisChannel){
-
-        toThisChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
-            try {
-                user.getSession().getRemote().sendString(String.valueOf(new JSONObject()
-                        .put("messageType", "normalMessageAsServer")
-                        .put("userMessage", createHtmlMessageFromSender(serverName, msg))
-                ));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        System.out.println("broadcast message to channel");
+        toThisChannel.getUsers().forEach(user -> broadcastMessageToUserAsServer(msg, user));
     }
 
     //refresh list of users and list of channels and for each user his current channel
-    public void broadcastControlMessage(){
+    public void updateSessionsInfo(){
 
         getAllUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
             try {
@@ -87,7 +81,8 @@ public class Chat {
         });
     }
 
-    public void broadcastMessageToUser(String msg, User user){
+    //you can also send a message to a specific user (as server)
+    public void broadcastMessageToUserAsServer(String msg, User user){
 
         if(!user.getSession().isOpen()){
             //exception
@@ -102,16 +97,9 @@ public class Chat {
         }
     }
 
+    //-------------------------------------------
 
 
-    //Builds a HTML element with a sender-name, a message, and a timestamp,
-    private String createHtmlMessageFromSender(String sender, String message) {
-        return article().with(
-                b(sender + " says:"),
-                p(message),
-                span().withClass("timestamp").withText(new SimpleDateFormat("HH:mm:ss").format(new Date()))
-        ).render();
-    }
 
 
     public Channel getMainChannel() {
@@ -184,7 +172,6 @@ public class Chat {
         return chan.get(0);
     }
 
-
     public void addChannel(Channel channel){
 
         if(channels.contains(channel) || channel.equals(mainChannel)){
@@ -228,6 +215,18 @@ public class Chat {
 
         user.setCurrentChannel(thisChannel);
 
+    }
+
+
+    // --- PRIVATES ---
+
+    //Builds a HTML element with a sender-name, a message, and a timestamp,
+    private String createHtmlMessageFromSender(String sender, String message) {
+        return article().with(
+                b(sender + " says:"),
+                p(message),
+                span().withClass("timestamp").withText(new SimpleDateFormat("HH:mm:ss").format(new Date()))
+        ).render();
     }
 
     private List<User> getAllUsers(){
