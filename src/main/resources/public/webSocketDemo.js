@@ -81,6 +81,8 @@ function updateChat(msg) {
                 sendMessage("$Change_forChannel::" + channel);
             });
         });
+    }else if(data.messageType = "youWontConnect"){
+        alert(data.userMessage);
     }
 }
 

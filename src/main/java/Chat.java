@@ -31,7 +31,7 @@ public class Chat {
     //--- COMMUNICATING WITH USERS SESSIONS -----
 
     //Messages from users, casual messages that we will broadcast to all of the users on the channel
-    public void broadcastMessage(String sender, String message) {
+    public void broadcastMessage(String sender, String message) throws ChatException {
 
         Channel sendersChannel;
 
@@ -42,6 +42,8 @@ public class Chat {
                 chatbox.answer(chatbox.getUser(sender), message);
             }catch(ChannelException e){
                 System.out.println("This error should not appear.");
+            }catch(ChatException e){
+                throw new ChatException("Chat.broadcastMessage: Error while broadcatsing message. \n" + e.getMessage());
             }
             return;
         } else {                                //if not - we look for him in other channels
@@ -49,7 +51,7 @@ public class Chat {
         }
 
         if(sendersChannel == null){             //if somehow he disappeared... exception
-            //exception
+            throw new ChatException("Channel has not been found.");
         }
 
         sendersChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
@@ -65,21 +67,9 @@ public class Chat {
     }
 
     // Write message as server, you can specify a channel to which you want to send it to!
-    public void broadcastMessageAsServer(String msg, Channel toThisChannel){                            //zamienić na zakomentowaną lambdę problem
+    public void broadcastMessageAsServer(String msg, Channel toThisChannel){
+        toThisChannel.getUsers().forEach(user -> broadcastMessageToUserAsServer(msg, user));
 
-        toThisChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
-            try {
-                user.getSession().getRemote().sendString(String.valueOf(new JSONObject()
-                        .put("messageType", "normalMessageAsServer")
-                        .put("userMessage", createHtmlMessageFromSender(serverName, msg))
-                ));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-
-
-        //toThisChannel.getUsers().forEach(user -> broadcastMessageToUserAsServer(msg, user));
     }
 
     //refresh list of users and list of channels and for each user his current channel
@@ -103,8 +93,9 @@ public class Chat {
     public void broadcastMessageToUserAsServer(String msg, User user){
 
         if(!user.getSession().isOpen()){
-            //exception
+            return;
         }
+
         try {
             user.getSession().getRemote().sendString(String.valueOf(new JSONObject()
                     .put("messageType", "normalMessage")
@@ -285,5 +276,15 @@ public class Chat {
         return channels.contains(channel) || channel.equals(mainChannel) || channel.equals(chatbox);
     }
 
+    private String prepareNormalMessage(String sender, String msg){
+        try{
+        return String.valueOf(new JSONObject()
+                .put("messageType", "normalMessage")
+                .put("userMessage", createHtmlMessageFromSender(sender, msg)));
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        return "";
+    }
 
 }

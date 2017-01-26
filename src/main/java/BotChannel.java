@@ -1,3 +1,5 @@
+import exceptions.ChatException;
+
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -27,7 +29,7 @@ public class BotChannel extends Channel {
         this.chat = chat;
     }
 
-    public void answer(User user, String question){
+    public void answer(User user, String question) throws ChatException {
         String answer = "I don't understand...";
 
 

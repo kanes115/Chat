@@ -1,6 +1,7 @@
 import exceptions.ChatException;
 import org.eclipse.jetty.websocket.api.*;
 import org.eclipse.jetty.websocket.api.annotations.*;
+import org.json.JSONObject;
 
 import java.util.stream.Collectors;
 
@@ -46,6 +47,7 @@ public class WebSocketHandler {
             System.out.println("------------------------------");
             System.out.println("[log] Somebody tried to connect but user with this username already exists.");
             System.out.println("------------------------------");
+            informAboutDisconnecting(user, "User already exists.");
             user.close();
         }
     }
@@ -87,6 +89,13 @@ public class WebSocketHandler {
             System.out.println("------------------------------");
             System.out.println("[log] Problem appeared when communicating with server. \n" + e.getMessage());
             System.out.println("------------------------------");
+            try {
+                chat.broadcastMessageToUserAsServer("Channel already exists!", chat.getUser(user));
+            }catch(ChatException f){
+                System.out.println("    ------------------------------");
+                System.out.println("    [log] Problem appeared when trying to tell user channel exists. \n" + e.getMessage());
+                System.out.println("    ------------------------------");
+            }
         }
     }
 
@@ -98,6 +107,18 @@ public class WebSocketHandler {
 
     private boolean isSwitchChannels(String message){
         return message.split(cmdDelimeter).length == 2 && message.split(cmdDelimeter)[0].equals(switchChannelCmd);
+    }
+
+
+    private void informAboutDisconnecting(Session user, String reason){
+        try {
+            user.getRemote().sendString(String.valueOf(new JSONObject()
+                    .put("messageType", "youWontConnect")
+                    .put("userMessage", "Dissconecting..." + reason)
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 
