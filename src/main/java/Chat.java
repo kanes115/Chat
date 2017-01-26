@@ -1,4 +1,6 @@
 
+import exceptions.ChannelException;
+import exceptions.ChatException;
 import org.eclipse.jetty.websocket.api.*;
 import org.json.*;
 
@@ -36,7 +38,11 @@ public class Chat {
         if(mainChannel.hasUser(sender)){        //checking if user is in main channel
             sendersChannel = mainChannel;
         } else if(chatbox.hasUser(sender)){
-            chatbox.answer(chatbox.getUser(sender), message);
+            try {
+                chatbox.answer(chatbox.getUser(sender), message);
+            }catch(ChannelException e){
+                System.out.println("This error should not appear.");
+            }
             return;
         } else {                                //if not - we look for him in other channels
             sendersChannel = channels.stream().filter(channel -> channel.hasUser(sender)).collect(Collectors.toList()).get(0);
@@ -59,9 +65,21 @@ public class Chat {
     }
 
     // Write message as server, you can specify a channel to which you want to send it to!
-    public void broadcastMessageAsServer(String msg, Channel toThisChannel){
-        System.out.println("broadcast message to channel");
-        toThisChannel.getUsers().forEach(user -> broadcastMessageToUserAsServer(msg, user));
+    public void broadcastMessageAsServer(String msg, Channel toThisChannel){                            //zamienić na zakomentowaną lambdę problem
+
+        toThisChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
+            try {
+                user.getSession().getRemote().sendString(String.valueOf(new JSONObject()
+                        .put("messageType", "normalMessageAsServer")
+                        .put("userMessage", createHtmlMessageFromSender(serverName, msg))
+                ));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+
+
+        //toThisChannel.getUsers().forEach(user -> broadcastMessageToUserAsServer(msg, user));
     }
 
     //refresh list of users and list of channels and for each user his current channel
@@ -106,55 +124,69 @@ public class Chat {
         return mainChannel;
     }
 
-    public void addUser(User user){
+    public void addUser(User user) throws ChatException{
 
-        if(user.getCurrentChannel().equals(this.mainChannel)){
-            this.mainChannel.addUser(user);
-            return;
+        try {
+            if (user.getCurrentChannel().equals(this.mainChannel)) {
+                this.mainChannel.addUser(user);
+                return;
+            }
+            if (user.getCurrentChannel().equals(chatbox)) {
+                this.chatbox.addUser(user);
+            }
+
+            if (!channels.contains(user.getCurrentChannel())) {
+                throw new ChatException("addUser: User could not be found");
+            }
+
+            Channel toAdd = channels.stream().filter(ch -> ch.equals(user.getCurrentChannel())).collect(Collectors.toList()).get(0);
+
+            toAdd.addUser(user);
+        }catch(ChannelException e){
+            throw new ChatException("Chat.addUser: " + user.getUsername() + "could not be added to the chat. \n" + e.getMessage());
         }
-        if(user.getCurrentChannel().equals(chatbox)){
-            this.chatbox.addUser(user);
-        }
-
-        if(!channels.contains(user.getCurrentChannel())){
-            //exception
-        }
-
-        Channel toAdd = channels.stream().filter(ch -> ch.equals(user.getCurrentChannel())).collect(Collectors.toList()).get(0);
-
-        toAdd.addUser(user);
     }
 
-    public void removeUser(User user){
+    public void removeUser(User user) throws ChatException{
 
         List<Channel> chan = allChannels().stream().filter(ch -> ch.hasUser(user.getUsername())).collect(Collectors.toList());
 
         if(chan.size() != 1){
-            //exception
-            System.out.println("User does not exist " + chan.size());
-            return;
+            throw new ChatException("Chat.removeUser: could not find user " + user.getUsername() + "\n");
         }
 
         Channel hisChannel = chan.get(0);
 
-
-        hisChannel.removeUser(user.getSession());
+        try {
+            hisChannel.removeUser(user.getSession());
+        }catch(ChannelException e){
+            throw new ChatException("Chat.removeUser: couldn't remove user from channel " + hisChannel.getName() + "\n" + e.getMessage());
+        }
 
     }
 
-    public User getUser(Session user){
-        if(mainChannel.hasUser(user)){
-            return mainChannel.getUser(user);
-        }
-        if(chatbox.hasUser(user)){
-            return chatbox.getUser(user);
+    public User getUser(Session user) throws ChatException{
+        try {
+            if (mainChannel.hasUser(user)) {
+                return mainChannel.getUser(user);
+            }
+            if (chatbox.hasUser(user)) {
+                return chatbox.getUser(user);
+            }
+        }catch(ChannelException e){
+            System.out.println("This error should not appear.");
         }
 
-        Channel hisChannel = channels.stream().filter(ch -> ch.hasUser(user)).collect(Collectors.toList()).get(0);
-        return hisChannel.getUser(user);
+
+        try {
+            Channel hisChannel = channels.stream().filter(ch -> ch.hasUser(user)).collect(Collectors.toList()).get(0);
+            return hisChannel.getUser(user);
+        }catch(ChannelException e){
+            throw new ChatException("Chat.getUser: user could not be found. \n" + e.getMessage());
+        }
     }
 
-    public Channel getUsersChannel(String username){
+    public Channel getUsersChannel(String username) throws ChatException{
         if(mainChannel.hasUser(username)){
             return this.mainChannel;
         }
@@ -165,55 +197,58 @@ public class Chat {
         List<Channel> chan = channels.stream().filter(ch -> ch.hasUser(username)).collect(Collectors.toList());
 
         if(chan.size() != 1){
-            //exception
-            return null;
+            throw new ChatException("Chat.getUsersChannel: user seem to not be in any channel. \n");
         }
 
         return chan.get(0);
     }
 
-    public void addChannel(Channel channel){
+    public void addChannel(Channel channel) throws ChatException {
 
-        if(channels.contains(channel) || channel.equals(mainChannel)){
-            return;
+        if(existChannel(channel)){
+            throw new ChatException("Channel already exist! \n");
         }
         channels.add(channel);
     }
 
-    public void switchChannels(Session userSession, String channelName){
+    public void switchChannels(Session userSession, String channelName) throws ChatException{
 
-        User user = getUser(userSession);
-        Channel oldChannel = getUsersChannel(user.getUsername());
+        try {
+            User user = getUser(userSession);
+            Channel oldChannel = getUsersChannel(user.getUsername());
 
-        if(oldChannel.equals(channelName)){
-            return;
+            if (oldChannel.equals(channelName)) {
+                return;
+            }
+
+            oldChannel.removeUser(user.getSession());
+
+            if (channelName.equals(mainChannel.getName())) {
+                mainChannel.addUser(user);
+                user.setCurrentChannel(mainChannel);
+                return;
+            }
+            if (channelName.equals(chatbox.getName())) {
+                chatbox.addUser(user);
+                user.setCurrentChannel(chatbox);
+                return;
+            }
+
+            List<Channel> chan = allChannels().stream().filter(ch -> ch.equals(channelName)).collect(Collectors.toList());
+
+            if (chan.size() < 1) {
+                //exception
+                return;
+            }
+
+            Channel thisChannel = chan.get(0);
+
+            thisChannel.addUser(user);
+
+            user.setCurrentChannel(thisChannel);
+        }catch (ChannelException e){
+            throw new ChatException("Chat.switchChannels: Accoured problems when switching channels. \n" + e.getMessage());
         }
-
-        oldChannel.removeUser(user.getSession());
-
-        if(channelName.equals(mainChannel.getName())){
-            mainChannel.addUser(user);
-            user.setCurrentChannel(mainChannel);
-            return;
-        }
-        if(channelName.equals(chatbox.getName())){
-            chatbox.addUser(user);
-            user.setCurrentChannel(chatbox);
-            return;
-        }
-
-        List<Channel> chan = allChannels().stream().filter(ch -> ch.equals(channelName)).collect(Collectors.toList());
-
-        if(chan.size() < 1){
-            //exception
-            return;
-        }
-
-        Channel thisChannel = chan.get(0);
-
-        thisChannel.addUser(user);
-
-        user.setCurrentChannel(thisChannel);
 
     }
 
@@ -244,6 +279,10 @@ public class Chat {
         List<Channel> res = new LinkedList<>(channels);
         res.add(this.chatbox);
         return res;
+    }
+
+    private boolean existChannel(Channel channel){
+        return channels.contains(channel) || channel.equals(mainChannel) || channel.equals(chatbox);
     }
 
 

@@ -1,3 +1,4 @@
+import exceptions.ChatException;
 import org.eclipse.jetty.websocket.api.*;
 import org.eclipse.jetty.websocket.api.annotations.*;
 
@@ -21,53 +22,82 @@ public class WebSocketHandler {
 
     @OnWebSocketConnect
     public void onConnect(Session user) throws Exception {
-        String username = user.getUpgradeRequest().getCookies().stream().filter(c -> c.getName().equals("username")).collect(Collectors.toList()).get(0).getValue();
 
-        User newUser = new User(username, chat.getMainChannel(), user);
+        String username = "";
 
-        chat.addUser(newUser);
-        chat.updateSessionsInfo();
-        chat.broadcastMessageAsServer(msg = (username + " joined the chat"), chat.getUsersChannel(username));
+        try {
+            username = user.getUpgradeRequest().getCookies().stream().filter(c -> c.getName().equals("username")).collect(Collectors.toList()).get(0).getValue();
+        }catch(java.lang.IndexOutOfBoundsException e){
+            System.out.println("------------------------------");
+            System.out.println("[log] Somebody tried to connect but problem with cookies qppeared.");
+            System.out.println("------------------------------");
+            user.close();
+            return;
+        }
+
+
+        try {
+            User newUser = new User(username, chat.getMainChannel(), user);
+
+            chat.addUser(newUser);
+            chat.updateSessionsInfo();
+            chat.broadcastMessageAsServer(msg = (username + " joined the chat"), chat.getUsersChannel(username));
+        }catch(ChatException e){
+            System.out.println("------------------------------");
+            System.out.println("[log] Somebody tried to connect but user with this username already exists.");
+            System.out.println("------------------------------");
+            user.close();
+        }
     }
 
     @OnWebSocketClose
     public void onClose(Session userSession, int statusCode, String reason) {
-        User user = chat.getUser(userSession);
-        chat.broadcastMessageAsServer(msg = (user.getUsername() + " left the chat"), chat.getUsersChannel(user.getUsername()));
-        chat.removeUser(user);
-        chat.updateSessionsInfo();
+        try {
+            User user = chat.getUser(userSession);
+            chat.broadcastMessageAsServer(msg = (user.getUsername() + " left the chat"), chat.getUsersChannel(user.getUsername()));
+            chat.removeUser(user);
+            chat.updateSessionsInfo();
+        }catch(ChatException e){
+            System.out.println("------------------------------");
+            System.out.println("[log] Some problems appeared when somebody tried to disconnect. \n" + e.getMessage());
+            System.out.println("------------------------------");
+        }
     }
 
     @OnWebSocketMessage
     public void onMessage(Session user, String message) {
-        System.out.println("message: " + message);
+        try {
+            if (isCreateChannel(message)) {
 
-        if(isCreateChannel(message)){
+                chat.addChannel(new Channel(message.split(cmdDelimeter)[1]));
+                chat.updateSessionsInfo();
 
-            chat.addChannel(new Channel(message.split(cmdDelimeter)[1]));
-            chat.updateSessionsInfo();
+            } else if (isSwitchChannels(message)) {
 
-        } else if (isSwitchChannels(message)){
+                chat.switchChannels(user, message.split(cmdDelimeter)[1]);
 
-            chat.switchChannels(user, message.split(cmdDelimeter)[1]);
+                chat.updateSessionsInfo();
 
-            chat.updateSessionsInfo();
+            } else {
 
-        } else {
+                chat.broadcastMessage(sender = chat.getUser(user).getUsername(), msg = message);
 
-            chat.broadcastMessage(sender = chat.getUser(user).getUsername(), msg = message);
-
+            }
+        }catch(ChatException e){
+            System.out.println("------------------------------");
+            System.out.println("[log] Problem appeared when communicating with server. \n" + e.getMessage());
+            System.out.println("------------------------------");
         }
     }
 
 
 
     private boolean isCreateChannel(String message) {
-        return message.split(cmdDelimeter).length > 1 && message.split(cmdDelimeter)[0].equals(createChannelCmd);
+        return message.split(cmdDelimeter).length == 2 && message.split(cmdDelimeter)[0].equals(createChannelCmd);
     }
 
     private boolean isSwitchChannels(String message){
-        return message.split(cmdDelimeter).length > 1 && message.split(cmdDelimeter)[0].equals(switchChannelCmd);
+        return message.split(cmdDelimeter).length == 2 && message.split(cmdDelimeter)[0].equals(switchChannelCmd);
     }
 
 

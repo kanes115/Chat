@@ -1,3 +1,4 @@
+import exceptions.ChannelException;
 import org.eclipse.jetty.websocket.api.Session;
 
 import java.util.LinkedList;
@@ -7,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * Created by Kanes on 24.01.2017.
+ * Comparing users is based on their usernames.
  */
 public class Channel {
     private String name;
@@ -39,22 +40,32 @@ public class Channel {
     }
 
 
-    public void addUser(User user){
+    public void addUser(User user) throws ChannelException {
         if(users.contains(user)){
-            //exception
+            throw new ChannelException("Channel.addUser: This user already exists! \n");
         }
         users.add(user);
     }
 
-    public void removeUser(Session user){
+    //if user does not exist - do nothing
+    public void removeUser(Session user) throws ChannelException{
+        if(!hasUser(user)){
+            throw new ChannelException("Channel.removeUser: User does not exist on this channel. \n");
+        }
         users = users.stream().filter(u -> !(u.getSession().equals(user))).collect(Collectors.toList());
     }
 
-    public User getUser(Session user){
+    public User getUser(Session user) throws ChannelException{
+        if(!hasUser(user)){
+            throw new ChannelException("Channel.getUser: User does not exist on this channel. \n");
+        }
         return users.stream().filter(u -> u.getSession().equals(user)).collect(Collectors.toList()).get(0);
     }
 
-    public User getUser(String username){
+    public User getUser(String username) throws ChannelException {
+        if(!hasUser(username)){
+            throw new ChannelException("Channel.getUser: User " + username + "does not exist on this channel. \n");
+        }
         return users.stream().filter(u -> u.getUsername().equals(username)).collect(Collectors.toList()).get(0);
     }
 

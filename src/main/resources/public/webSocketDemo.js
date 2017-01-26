@@ -9,7 +9,8 @@ var userName = "";
 do {
     userName = prompt("Enter your username", "");
 } while(userName == ""){
-    document.cookie = "username=" + userName;
+    if(userName)
+        document.cookie = "username=" + userName;
 }
 
 
