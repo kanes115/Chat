@@ -56,10 +56,7 @@ public class Chat {
 
         sendersChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
             try {
-                user.getSession().getRemote().sendString(String.valueOf(new JSONObject()
-                        .put("messageType", "normalMessage")
-                        .put("userMessage", createHtmlMessageFromSender(sender, message))
-                ));
+                user.getSession().getRemote().sendString(prepareNormalMessage(sender, message));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -97,10 +94,7 @@ public class Chat {
         }
 
         try {
-            user.getSession().getRemote().sendString(String.valueOf(new JSONObject()
-                    .put("messageType", "normalMessage")
-                    .put("userMessage", createHtmlMessageFromSender(serverName, msg))
-            ));
+            user.getSession().getRemote().sendString(prepareNormalMessage(serverName, msg));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -246,7 +240,6 @@ public class Chat {
 
     // --- PRIVATES ---
 
-    //Builds a HTML element with a sender-name, a message, and a timestamp,
     private String createHtmlMessageFromSender(String sender, String message) {
         return article().with(
                 b(sender + " says:"),

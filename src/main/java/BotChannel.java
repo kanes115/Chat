@@ -38,7 +38,6 @@ public class BotChannel extends Channel {
 
 
         if(wordsL.stream().anyMatch(BotChannel::aboutTime)){
-            System.out.println("ddd");
             answer = "The time is: " + (new SimpleDateFormat("HH:mm:ss").format(new Date()));
         }else if(wordsL.stream().anyMatch(BotChannel::aboutWeather)){
             int los = ran.nextInt(3);
