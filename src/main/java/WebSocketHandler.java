@@ -19,9 +19,6 @@ public class WebSocketHandler {
     private String switchChannelCmd = "$Change_forChannel";
     private String cmdDelimeter = "::";
 
-    public WebSocketHandler(){
-        System.out.print("ss");
-    }
 
     @OnWebSocketConnect
     public void onConnect(Session user) throws Exception {

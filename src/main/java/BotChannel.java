@@ -63,25 +63,25 @@ public class BotChannel extends Channel {
 
             switch(dayOfWeek){
                 case 1:
-                    answer = "It is Monday";
+                    answer = "It is Sunday";
                     break;
                 case 2:
-                    answer = "It is Tuesday";
+                    answer = "It is Monday";
                     break;
                 case 3:
-                    answer = "It is Wednesday";
+                    answer = "It is Tuesday";
                     break;
                 case 4:
-                    answer = "It is Thursday. Best day to pass Programowanie Obiektowe.";
+                    answer = "It is Wednesday";
                     break;
                 case 5:
-                    answer = "It is Friday";
+                    answer = "It is Thursday. Best day to pass Programowanie Obiektowe.";
                     break;
                 case 6:
-                    answer = "It is Sutarday";
+                    answer = "It is Friday";
                     break;
                 case 7:
-                    answer = "It is Sunday";
+                    answer = "It is Sutarday";
                     break;
                 default:
                     break;

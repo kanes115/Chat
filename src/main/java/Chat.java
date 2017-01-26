@@ -25,7 +25,7 @@ public class Chat {
         init();
     }
 
-    //Messages from users
+    //Messages from users, casual messages that we will broadcast to all of the users on the channel
     public void broadcastMessage(String sender, String message) {
 
         Channel sendersChannel;
@@ -55,7 +55,7 @@ public class Chat {
         });
     }
 
-    // Write a message as a server
+    // Write message as a server, you can specify a channel to which you want to send it to!
     public void broadcastMessageAsServer(String msg, Channel toThisChannel){
 
         toThisChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
@@ -70,7 +70,7 @@ public class Chat {
         });
     }
 
-    //refresh list of users and list of channels
+    //refresh list of users and list of channels and for each user his current channel
     public void broadcastControlMessage(){
 
         getAllUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
