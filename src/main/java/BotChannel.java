@@ -11,11 +11,10 @@ import static j2html.TagCreator.span;
 public class BotChannel extends Channel {
 
 
-    private Random ran = new Random();
     private Chat chat;
-    private static LinkedList<String> wordsAboutTime = new LinkedList<>();
-    private static LinkedList<String> wordsAboutWeather = new LinkedList<>();
-    private static LinkedList<String> wordsAboutWeekdays = new LinkedList<>();
+    private LinkedList<String> wordsAboutTime = new LinkedList<>();
+    private LinkedList<String> wordsAboutWeather = new LinkedList<>();
+    private LinkedList<String> wordsAboutWeekdays = new LinkedList<>();
 
     public BotChannel(String name, Chat chat) {
         super(name);
@@ -37,25 +36,15 @@ public class BotChannel extends Channel {
         List<String> wordsL = Arrays.asList(words);
 
 
-        if(wordsL.stream().anyMatch(BotChannel::aboutTime)){
+        if(wordsL.stream().anyMatch(this::aboutTime)){
             answer = "The time is: " + (new SimpleDateFormat("HH:mm:ss").format(new Date()));
-        }else if(wordsL.stream().anyMatch(BotChannel::aboutWeather)){
-            int los = ran.nextInt(3);
+        }else if(wordsL.stream().anyMatch(this::aboutWeather)){
 
-            switch(los){
-                case 0:
-                    answer = "It will rain. Remember about umbrella.";
-                    break;
-                case 1:
-                    answer = "It will be sunny. Enjoy.";
-                    break;
-                case 2:
-                    answer = "It will snow.";
-                    break;
-                default:
-                    break;
-            }
-        }else if(wordsL.stream().anyMatch(BotChannel::aboutWeekdays)){
+
+            WeatherBuilder weather = new WeatherBuilder();
+            answer = weather.getWeather();
+
+        }else if(wordsL.stream().anyMatch(this::aboutWeekdays)){
             Calendar c = Calendar.getInstance();
             int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
 
@@ -74,7 +63,7 @@ public class BotChannel extends Channel {
                     answer = "It is Wednesday";
                     break;
                 case 5:
-                    answer = "It is Thursday. Best day to pass Programowanie Obiektowe.";
+                    answer = "It is Thursday.";
                     break;
                 case 6:
                     answer = "It is Friday";
@@ -92,15 +81,15 @@ public class BotChannel extends Channel {
     }
 
 
-    private static boolean aboutTime(String word){
+    private boolean aboutTime(String word){
         return wordsAboutTime.stream().anyMatch(w -> w.equals(word));
     }
 
-    private static boolean aboutWeather(String word){
+    private boolean aboutWeather(String word){
         return wordsAboutWeather.stream().anyMatch(w -> w.equals(word));
     }
 
-    private static boolean aboutWeekdays(String word){
+    private boolean aboutWeekdays(String word){
         return wordsAboutWeekdays.stream().anyMatch(w -> w.equals(word));
     }
 

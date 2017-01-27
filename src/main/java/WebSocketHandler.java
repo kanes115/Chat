@@ -29,9 +29,7 @@ public class WebSocketHandler {
         try {
             username = user.getUpgradeRequest().getCookies().stream().filter(c -> c.getName().equals("username")).collect(Collectors.toList()).get(0).getValue();
         }catch(java.lang.IndexOutOfBoundsException e){
-            System.out.println("------------------------------");
-            System.out.println("[log] Somebody tried to connect but problem with cookies qppeared.");
-            System.out.println("------------------------------");
+            log("Somebody tried to connect but problem with cookies qppeared.");
             user.close();
             return;
         }
@@ -44,9 +42,7 @@ public class WebSocketHandler {
             chat.updateSessionsInfo();
             chat.broadcastMessageAsServer(msg = (username + " joined the chat"), chat.getUsersChannel(username));
         }catch(ChatException e){
-            System.out.println("------------------------------");
-            System.out.println("[log] Somebody tried to connect but user with this username already exists.");
-            System.out.println("------------------------------");
+            log("Somebody tried to connect but user with this username already exists.");
             informAboutDisconnecting(user, "User already exists.");
             user.close();
         }
@@ -60,9 +56,7 @@ public class WebSocketHandler {
             chat.removeUser(user);
             chat.updateSessionsInfo();
         }catch(ChatException e){
-            System.out.println("------------------------------");
-            System.out.println("[log] Some problems appeared when somebody tried to disconnect. \n" + e.getMessage());
-            System.out.println("------------------------------");
+            log("Some problems appeared when somebody tried to disconnect. \n" + e.getMessage());
         }
     }
 
@@ -86,15 +80,11 @@ public class WebSocketHandler {
 
             }
         }catch(ChatException e){
-            System.out.println("------------------------------");
-            System.out.println("[log] Problem appeared when communicating with server. \n" + e.getMessage());
-            System.out.println("------------------------------");
+            log("Problem appeared when communicating with server. \n" + e.getMessage());
             try {
                 chat.broadcastMessageToUserAsServer("Channel already exists!", chat.getUser(user));
             }catch(ChatException f){
-                System.out.println("    ------------------------------");
-                System.out.println("    [log] Problem appeared when trying to tell user channel exists. \n" + e.getMessage());
-                System.out.println("    ------------------------------");
+                log("Problem appeared when trying to tell user channel exists. \n" + e.getMessage());
             }
         }
     }
@@ -119,6 +109,12 @@ public class WebSocketHandler {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void log(String logmsg){
+        System.out.println("    ------------------------------");
+        System.out.println("[log] " + logmsg);
+        System.out.println("    ------------------------------");
     }
 
 

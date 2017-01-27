@@ -5,8 +5,10 @@ import org.eclipse.jetty.websocket.api.*;
 import org.json.*;
 
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.text.*;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 import static j2html.TagCreator.*;
@@ -14,7 +16,7 @@ import static spark.Spark.*;
 
 public class Chat {
 
-    private List<Channel> channels = new LinkedList<>();
+    private List<Channel> channels = new CopyOnWriteArrayList<>();
     private Channel mainChannel = new Channel("main chat");
     private BotChannel chatbox = new BotChannel("chatbox", this);
     private String serverName = "Server";
@@ -33,70 +35,112 @@ public class Chat {
     //Messages from users, casual messages that we will broadcast to all of the users on the channel
     public void broadcastMessage(String sender, String message) throws ChatException {
 
-        Channel sendersChannel;
+        try {
+            Channel sendersChannel;
 
-        if(mainChannel.hasUser(sender)){        //checking if user is in main channel
-            sendersChannel = mainChannel;
-        } else if(chatbox.hasUser(sender)){
-            try {
-                chatbox.answer(chatbox.getUser(sender), message);
-            }catch(ChannelException e){
-                System.out.println("This error should not appear.");
-            }catch(ChatException e){
-                throw new ChatException("Chat.broadcastMessage: Error while broadcatsing message. \n" + e.getMessage());
+            if (mainChannel.hasUser(sender)) {                          //checking if user is in main channel
+                sendersChannel = mainChannel;
+            } else if (chatbox.hasUser(sender)) {                       //checking if user is in chatbox
+
+                chatbox.answer(chatbox.getUser(sender), message);       //if so, let the chatbox do the job and answer him
+
+                return;
+            } else {                                                    //if not - we look for him in other channels
+                sendersChannel = channels.stream().filter(channel -> channel.hasUser(sender)).collect(Collectors.toList()).get(0);
             }
-            return;
-        } else {                                //if not - we look for him in other channels
-            sendersChannel = channels.stream().filter(channel -> channel.hasUser(sender)).collect(Collectors.toList()).get(0);
-        }
 
-        if(sendersChannel == null){             //if somehow he disappeared... exception
-            throw new ChatException("Channel has not been found.");
-        }
-
-        sendersChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
-            try {
-                user.getSession().getRemote().sendString(prepareNormalMessage(sender, message));
-            } catch (Exception e) {
-                e.printStackTrace();
+            if (sendersChannel == null) {                               //if somehow he disappeared... exception
+                throw new ChatException("Channel has not been found.");
             }
-        });
+
+
+            //------
+            for(User user : sendersChannel.getUsers()){
+                if(user.getSession().isOpen()){
+                    try {
+                        sendStringToUser(prepareNormalMessage(sender, message), user);
+                    } catch (ChatException e) {
+                        throw new ChatException("Couldn't send message.");
+                    }
+                }
+            }
+            //------
+
+
+//            sendersChannel.getUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
+//                try {
+//                    sendStringToUser(prepareNormalMessage(sender, message), user);
+//                } catch (ChatException e) {
+//                    e.printStackTrace();
+//                }
+//            });
+
+        }catch(Exception e){
+            throw new ChatException("Chat.broadcastMessage: Error while broadcatsing message. \n" + e.getMessage());
+        }
     }
 
     // Write message as server, you can specify a channel to which you want to send it to!
-    public void broadcastMessageAsServer(String msg, Channel toThisChannel){
-        toThisChannel.getUsers().forEach(user -> broadcastMessageToUserAsServer(msg, user));
+    public void broadcastMessageAsServer(String msg, Channel toThisChannel) throws ChatException {
+        try {
+            for (User user : toThisChannel.getUsers()) {
+                broadcastMessageToUserAsServer(msg, user);
+            }
+        }catch(ChatException e){
+            throw new ChatException("couldn't send message");
+        }
+
+        //toThisChannel.getUsers().forEach(user -> broadcastMessageToUserAsServer(msg, user));
 
     }
 
     //refresh list of users and list of channels and for each user his current channel
-    public void updateSessionsInfo(){
+    public void updateSessionsInfo() throws ChatException {
 
-        getAllUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
-            try {
-                user.getSession().getRemote().sendString(String.valueOf(new JSONObject()
-                        .put("messageType", "updateInfoMessage")
-                        .put("channellist", allChannelsExeptMain().stream().map(Channel::toString).collect(Collectors.toList()))
-                        .put("userlist", getUsersChannel(user.getUsername()).getUsersAsUsernames())
-                        .put("currentChannel", user.getCurrentChannel().getName())
-                ));
-            } catch (Exception e) {
-                e.printStackTrace();
+        //------
+        for(User user : getAllUsers()){
+            if(user.getSession().isOpen()){
+                try {
+                    sendStringToUser(String.valueOf(new JSONObject()
+                            .put("messageType", "updateInfoMessage")
+                            .put("channellist", allChannelsExeptMain().stream().map(Channel::toString).collect(Collectors.toList()))
+                            .put("userlist", getUsersChannel(user.getUsername()).getUsersAsUsernames())
+                            .put("currentChannel", user.getCurrentChannel().getName())
+                    ), user);
+                } catch (Exception e) {
+                    throw new ChatException("Couldn't send message.");
+                }
             }
-        });
+        }
+        //------
+
+
+
+//        getAllUsers().stream().filter(user -> user.getSession().isOpen()).forEach(user -> {
+//            try {
+//                sendStringToUser(String.valueOf(new JSONObject()
+//                        .put("messageType", "updateInfoMessage")
+//                        .put("channellist", allChannelsExeptMain().stream().map(Channel::toString).collect(Collectors.toList()))
+//                        .put("userlist", getUsersChannel(user.getUsername()).getUsersAsUsernames())
+//                        .put("currentChannel", user.getCurrentChannel().getName())
+//                ), user);
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        });
     }
 
     //you can also send a message to a specific user (as server)
-    public void broadcastMessageToUserAsServer(String msg, User user){
+    public void broadcastMessageToUserAsServer(String msg, User user) throws ChatException {
 
         if(!user.getSession().isOpen()){
             return;
         }
 
         try {
-            user.getSession().getRemote().sendString(prepareNormalMessage(serverName, msg));
+            sendStringToUser(prepareNormalMessage(serverName, msg), user);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new ChatException("Couldnt send message");
         }
     }
 
@@ -108,6 +152,8 @@ public class Chat {
     public Channel getMainChannel() {
         return mainChannel;
     }
+
+    public BotChannel getChatBox(){ return chatbox;}
 
     public void addUser(User user) throws ChatException{
 
@@ -278,6 +324,14 @@ public class Chat {
             e.printStackTrace();
         }
         return "";
+    }
+
+    private void sendStringToUser(String msg, User user) throws ChatException {
+        try {
+            user.getSession().getRemote().sendString(msg);
+        }catch(Exception e){
+            throw new ChatException("Couldn't send message to user.");
+        }
     }
 
 }
